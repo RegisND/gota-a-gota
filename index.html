@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gota a Gota</title>
+<meta name="theme-color" content="#1B7BA3">
+<meta name="description" content="Acompanhe a água que você bebe por dia, com meta calculada pelo seu peso.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: coluna única de app de celular — recipiente com nível de água no topo, botões grandes logo abaixo, histórico e ajustes depois */
+:root{
+  --bg:#EEF4F5; --surface:#FFFFFF; --ink:#0E2A33; --muted:#52707A; --line:#D3E2E6;
+  --water:#1B7BA3; --water-soft:#C6E5F0; --water-ink:#FFFFFF; --good:#2F7D52; --warn:#A8620B;
+  --display:"Familjen Grotesk", "Segoe UI", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0A181D; --surface:#11252C; --ink:#E2F0F3; --muted:#8EA9B1; --line:#23404A;
+  --water:#4DB3D8; --water-soft:#1B4250; --water-ink:#06222C; --good:#5FBF86; --warn:#E3A24A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0A181D; --surface:#11252C; --ink:#E2F0F3; --muted:#8EA9B1; --line:#23404A;
+  --water:#4DB3D8; --water-soft:#1B4250; --water-ink:#06222C; --good:#5FBF86; --warn:#E3A24A; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:20px 40px}
+.app{max-width:460px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1,h2{font-family:var(--display);margin:0;text-wrap:balance;line-height:1.15}
+h1{font-size:1.6rem;font-weight:700}
+h2{font-size:1.1rem;font-weight:700}
+.eyebrow{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.num{font-variant-numeric:tabular-nums}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+header p{margin:0;color:var(--muted);font-size:.92rem}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px}
+button{font:inherit;cursor:pointer;color:inherit}
+button:focus-visible,input:focus-visible{outline:3px solid var(--water);outline-offset:2px}
+.ghost{background:none;border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:.9rem}
+.linkbtn{background:none;border:0;padding:4px;color:var(--water);font-weight:700;font-size:.92rem}
+
+/* Recipiente */
+.today{display:grid;grid-template-columns:120px 1fr;gap:18px;align-items:center}
+.vessel{width:120px;max-width:100%}
+.vessel svg{display:block;width:100%;height:auto}
+.big{font-family:var(--display);font-size:2.3rem;font-weight:700;line-height:1}
+.big small{font-size:1rem;color:var(--muted);font-weight:500}
+.sub{color:var(--muted);font-size:.95rem;margin:6px 0 0}
+.pill{display:inline-block;margin-top:10px;padding:3px 10px;border-radius:999px;font-size:.82rem;font-weight:700;border:1px solid currentColor}
+.pill.ok{color:var(--good)} .pill.go{color:var(--water)}
+
+/* Botões de registro */
+.adds{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.add{background:var(--water);color:var(--water-ink);border:0;border-radius:12px;padding:14px 6px;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:76px}
+.add b{font-family:var(--display);font-size:1.25rem}
+.add span{font-size:.8rem;opacity:.9}
+.add:active{transform:translateY(1px)}
+.custom{display:flex;gap:10px}
+.custom input{flex:1;min-width:0}
+input[type=number],input[type=text]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;width:100%}
+.custom button{background:var(--surface);border:1px solid var(--water);color:var(--water);border-radius:10px;padding:0 16px;font-weight:700}
+.toggle{display:flex;gap:10px;align-items:center;font-size:.95rem}
+.toggle input{width:20px;height:20px;accent-color:var(--water)}
+
+.reminder{border-radius:12px;padding:12px 14px;background:var(--water-soft);font-size:.95rem}
+
+/* Lista do dia */
+ul.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+ul.log li{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);gap:10px}
+ul.log li:last-child{border-bottom:0}
+.tag{font-size:.78rem;color:var(--muted)}
+.del{background:none;border:0;color:var(--muted);font-size:1.3rem;line-height:1;padding:4px 8px}
+.empty{color:var(--muted);font-size:.95rem;margin:0}
+
+/* Semana */
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart .lbl{fill:var(--muted);font:12px var(--body)}
+.chart .val{fill:var(--ink);font:700 12px var(--body)}
+.chart .goal{stroke:var(--muted);stroke-dasharray:4 4;stroke-width:1.5}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.bar{fill:var(--water)} .bar.miss{fill:var(--water-soft)} .bar.sel{stroke:var(--ink);stroke-width:2}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:6px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{border-top:2px solid var(--line);padding-top:8px}
+.stat b{display:block;font-family:var(--display);font-size:1.4rem}
+.stat span{font-size:.8rem;color:var(--muted);line-height:1.3;display:block}
+
+/* Formulário de perfil */
+form{display:flex;flex-direction:column;gap:14px;margin:0}
+label.f{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:.92rem}
+label.f small{font-weight:400;color:var(--muted)}
+.primary{background:var(--water);color:var(--water-ink);border:0;border-radius:12px;padding:14px;font-weight:700;font-size:1rem}
+.calc{background:var(--bg);border-radius:10px;padding:12px;font-size:.95rem}
+.calc b{font-family:var(--display);font-size:1.3rem}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.danger{color:var(--warn);border-color:var(--warn)}
+.note{font-size:.85rem;color:var(--muted);line-height:1.45;margin:0}
+.copied{font-size:.85rem;color:var(--good)}
+textarea{width:100%;min-height:120px;font:13px/1.4 ui-monospace,monospace;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}
+@media (max-width:360px){.today{grid-template-columns:90px 1fr}.big{font-size:1.9rem}}
+@media (prefers-reduced-motion:no-preference){#waterRect{transition:y .6s ease,height .6s ease}}
+</style>
+</head>
+<body>
+
+
+<div class="app">
+  <header>
+    <div>
+      <div class="eyebrow">Hidratação diária</div>
+      <h1>Gota a Gota</h1>
+    </div>
+    <p id="hello"></p>
+  </header>
+
+  <!-- Perfil (primeiro acesso e ajustes) -->
+  <section class="panel" id="setup" hidden>
+    <h2 id="setupTitle">Vamos calcular sua meta</h2>
+    <form id="profileForm" novalidate>
+      <label class="f" for="fNome">Seu nome <small>Opcional, aparece só neste aparelho</small>
+        <input type="text" id="fNome" autocomplete="given-name" placeholder="Ex.: Maria">
+      </label>
+      <label class="f" for="fPeso">Peso (kg)
+        <input type="number" id="fPeso" inputmode="decimal" min="20" max="250" step="0.1" value="70" required>
+      </label>
+      <label class="toggle" for="fAtivo"><input type="checkbox" id="fAtivo"> Faço atividade física ou trabalho no calor (+500 ml)</label>
+      <div class="calc" id="calcBox"></div>
+      <label class="f" for="fMeta">Meta diária (ml) <small>Já vem calculada. Mude só se seu médico indicou outro valor.</small>
+        <input type="number" id="fMeta" inputmode="numeric" min="500" max="8000" step="50">
+      </label>
+      <button class="primary" type="submit" id="saveProfile">Salvar e começar</button>
+      <button class="linkbtn" type="button" id="cancelSetup" hidden>Cancelar</button>
+    </form>
+  </section>
+
+  <main id="main" hidden style="display:flex;flex-direction:column;gap:18px">
+    <section class="panel" aria-labelledby="hojeT">
+      <div class="today">
+        <div class="vessel" aria-hidden="true">
+          <svg viewBox="0 0 120 160">
+            <defs><clipPath id="glass"><path d="M14 8 H106 L94 150 Q93 154 89 154 H31 Q27 154 26 150 Z"/></clipPath></defs>
+            <rect x="0" y="0" width="120" height="160" fill="var(--water-soft)" clip-path="url(#glass)" opacity=".45"/>
+            <rect id="waterRect" x="0" y="154" width="120" height="0" fill="var(--water)" clip-path="url(#glass)"/>
+            <path d="M14 8 H106 L94 150 Q93 154 89 154 H31 Q27 154 26 150 Z" fill="none" stroke="var(--ink)" stroke-width="3" stroke-linejoin="round"/>
+            <line x1="22" y1="81" x2="34" y2="81" stroke="var(--ink)" stroke-width="2" opacity=".5"/>
+          </svg>
+        </div>
+        <div>
+          <div class="eyebrow" id="hojeT">Hoje</div>
+          <div class="big num" id="bigNum">0 <small>ml</small></div>
+          <p class="sub num" id="subNum"></p>
+          <span class="pill go" id="statusPill"></span>
+        </div>
+      </div>
+
+      <div class="reminder" id="reminder" hidden></div>
+
+      <div class="adds">
+        <button class="add" type="button" data-ml="200"><b>200</b><span>copo</span></button>
+        <button class="add" type="button" data-ml="300"><b>300</b><span>caneca</span></button>
+        <button class="add" type="button" data-ml="500"><b>500</b><span>garrafa</span></button>
+      </div>
+      <form class="custom" id="customForm" novalidate>
+        <input type="number" id="customMl" inputmode="numeric" min="10" max="3000" step="10" placeholder="Outra quantidade (ml)" aria-label="Outra quantidade em ml">
+        <button type="submit">Registrar</button>
+      </form>
+      <label class="toggle" for="reuse"><input type="checkbox" id="reuse" checked> Bebi em garrafa ou copo reutilizável</label>
+    </section>
+
+    <section class="panel" aria-labelledby="logT">
+      <h2 id="logT">Registros de hoje</h2>
+      <ul class="log" id="log"></ul>
+      <p class="empty" id="logEmpty">Nenhum registro ainda. Toque em um dos botões acima depois de beber água.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="weekT">
+      <h2 id="weekT">Últimos 7 dias</h2>
+      <div class="chart" id="chart"></div>
+      <div class="legend"><span><i style="background:var(--water)"></i>Meta atingida</span><span><i style="background:var(--water-soft)"></i>Abaixo da meta</span><span><i style="border-top:2px dashed var(--muted);border-radius:0;height:0;width:16px;vertical-align:3px"></i>Meta</span></div>
+      <div class="stats">
+        <div class="stat"><b class="num" id="stStreak">0</b><span>dias seguidos na meta</span></div>
+        <div class="stat"><b class="num" id="stAvg">0%</b><span>média da meta na semana</span></div>
+        <div class="stat"><b class="num" id="stBottles">0</b><span>garrafinhas plásticas evitadas</span></div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="ajT">
+      <h2 id="ajT">Meu perfil</h2>
+      <p class="note num" id="profileLine"></p>
+      <div class="row">
+        <button class="ghost" type="button" id="editProfile">Alterar peso ou meta</button>
+        <button class="ghost" type="button" id="exportBtn">Copiar meu resumo</button>
+      </div>
+      <div id="exportBox" hidden>
+        <p class="note">Copie o texto abaixo e envie para quem está acompanhando o projeto. Ele não inclui nenhum dado além destes.</p>
+        <textarea id="exportText" readonly aria-label="Resumo para copiar"></textarea>
+        <span class="copied" id="copiedMsg" hidden>Resumo copiado.</span>
+      </div>
+      <div class="row">
+        <button class="ghost danger" type="button" id="resetBtn">Apagar todos os meus dados</button>
+      </div>
+      <div id="resetConfirm" hidden class="calc">
+        <p class="note" style="margin-bottom:10px">Isso apaga perfil e histórico deste aparelho. Não dá para desfazer.</p>
+        <div class="row"><button class="ghost danger" type="button" id="resetYes">Sim, apagar</button><button class="ghost" type="button" id="resetNo">Cancelar</button></div>
+      </div>
+    </section>
+  </main>
+
+  <p class="note">A meta usa a referência geral de 35 ml por kg de peso por dia, para adultos saudáveis. Não substitui orientação médica: quem tem doença renal, cardíaca ou recebeu restrição de líquidos deve seguir o que o médico indicou. Seus dados ficam só neste aparelho.</p>
+</div>
+
+<script>
+(function(){
+  const KEY = 'gotaagota.v1';
+  const ML_POR_KG = 35, EXTRA_ATIVO = 500, GARRAFINHA = 500, LEMBRETE_MIN = 120;
+  const fmt = n => Math.round(n).toLocaleString('pt-BR');
+  const $ = id => document.getElementById(id);
+
+  let mem = null;
+  function load(){ try{ const s = localStorage.getItem(KEY); if(s) return JSON.parse(s); }catch(e){} return mem; }
+  function save(){ mem = state; try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+  let state = load() || { profile:null, logs:{} };
+
+  const dayKey = d => { const x = new Date(d); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); };
+  const todayKey = () => dayKey(Date.now());
+  const metaCalc = (peso, ativo) => Math.round((peso*ML_POR_KG + (ativo?EXTRA_ATIVO:0))/50)*50;
+  const totalDia = k => (state.logs[k]||[]).reduce((s,e)=>s+e.ml,0);
+
+  /* ---------- Perfil ---------- */
+  let metaTocada = false;
+  function updateCalc(){
+    const peso = parseFloat($('fPeso').value), ativo = $('fAtivo').checked;
+    if(!(peso>=20 && peso<=250)){ $('calcBox').innerHTML = 'Informe um peso entre 20 e 250 kg.'; return; }
+    const m = metaCalc(peso, ativo);
+    $('calcBox').innerHTML = `${fmt(peso)} kg × 35 ml${ativo?' + 500 ml':''} = <b class="num">${fmt(m)} ml</b> por dia<br><span class="tag">Cerca de ${Math.ceil(m/250)} copos de 250 ml</span>`;
+    if(!metaTocada) $('fMeta').value = m;
+  }
+  function openSetup(editing){
+    const p = state.profile;
+    $('setupTitle').textContent = editing ? 'Alterar peso ou meta' : 'Vamos calcular sua meta';
+    $('saveProfile').textContent = editing ? 'Salvar alterações' : 'Salvar e começar';
+    $('cancelSetup').hidden = !editing;
+    if(p){ $('fNome').value = p.nome||''; $('fPeso').value = p.peso; $('fAtivo').checked = !!p.ativo; $('fMeta').value = p.meta; metaTocada = p.meta !== metaCalc(p.peso,p.ativo); }
+    else metaTocada = false;
+    updateCalc();
+    $('setup').hidden = false; $('main').hidden = true;
+    $('setup').scrollIntoView({block:'start'});
+  }
+  $('fPeso').addEventListener('input', updateCalc);
+  $('fAtivo').addEventListener('change', updateCalc);
+  $('fMeta').addEventListener('input', ()=>{ metaTocada = true; });
+  $('profileForm').addEventListener('submit', e=>{
+    e.preventDefault();
+    const peso = parseFloat($('fPeso').value);
+    if(!(peso>=20 && peso<=250)){ $('fPeso').focus(); updateCalc(); return; }
+    let meta = parseInt($('fMeta').value,10);
+    if(!(meta>=500 && meta<=8000)) meta = metaCalc(peso, $('fAtivo').checked);
+    state.profile = { nome:$('fNome').value.trim().slice(0,40), peso, ativo:$('fAtivo').checked, meta };
+    save(); showMain();
+  });
+  $('cancelSetup').addEventListener('click', showMain);
+  $('editProfile').addEventListener('click', ()=>openSetup(true));
+
+  /* ---------- Registro ---------- */
+  function add(ml){
+    const k = todayKey();
+    (state.logs[k] = state.logs[k]||[]).push({ t:Date.now(), ml, reuse:$('reuse').checked });
+    save(); render();
+  }
+  document.querySelectorAll('.add').forEach(b=>b.addEventListener('click', ()=>add(+b.dataset.ml)));
+  $('customForm').addEventListener('submit', e=>{
+    e.preventDefault();
+    const v = parseInt($('customMl').value,10);
+    if(v>=10 && v<=3000){ add(v); $('customMl').value=''; } else $('customMl').focus();
+  });
+  $('log').addEventListener('click', e=>{
+    const b = e.target.closest('.del'); if(!b) return;
+    const k = todayKey(); state.logs[k].splice(+b.dataset.i,1); save(); render();
+  });
+
+  /* ---------- Exportar / apagar ---------- */
+  function resumo(){
+    const p = state.profile, linhas = [];
+    linhas.push('Gota a Gota — resumo');
+    linhas.push('Participante: ' + (p.nome || 'não informado'));
+    linhas.push('Peso: '+fmt(p.peso)+' kg | Meta: '+fmt(p.meta)+' ml/dia');
+    linhas.push('Data | ml | % da meta');
+    const dias = Object.keys(state.logs).sort();
+    dias.forEach(k=>{ const t = totalDia(k); linhas.push(k.split('-').reverse().join('/')+' | '+fmt(t)+' | '+Math.round(t/p.meta*100)+'%'); });
+    linhas.push('Dias registrados: '+dias.length+' | Dias na meta: '+dias.filter(k=>totalDia(k)>=p.meta).length);
+    linhas.push('Garrafinhas plásticas evitadas: '+bottles());
+    return linhas.join('\n');
+  }
+  $('exportBtn').addEventListener('click', ()=>{
+    $('exportBox').hidden = false; const ta = $('exportText'); ta.value = resumo(); $('copiedMsg').hidden = true;
+    const ok = ()=>{ $('copiedMsg').hidden = false; };
+    try{ navigator.clipboard.writeText(ta.value).then(ok, ()=>{ ta.focus(); ta.select(); }); }catch(e){ ta.focus(); ta.select(); }
+  });
+  $('resetBtn').addEventListener('click', ()=>{ $('resetConfirm').hidden = false; });
+  $('resetNo').addEventListener('click', ()=>{ $('resetConfirm').hidden = true; });
+  $('resetYes').addEventListener('click', ()=>{ state = {profile:null, logs:{}}; mem = null; try{ localStorage.removeItem(KEY); }catch(e){} $('resetConfirm').hidden = true; $('exportBox').hidden = true; openSetup(false); });
+
+  /* ---------- Render ---------- */
+  function bottles(){ let s=0; Object.values(state.logs).forEach(a=>a.forEach(e=>{ if(e.reuse) s+=e.ml; })); return Math.floor(s/GARRAFINHA); }
+
+  function last7(){ const out=[]; for(let i=6;i>=0;i--){ const d=new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()-i); out.push(d); } return out; }
+
+  function renderChart(){
+    const meta = state.profile.meta, days = last7();
+    const vals = days.map(d=>totalDia(dayKey(d)));
+    const max = Math.max(meta*1.25, ...vals) , W=320, H=170, top=18, base=140, ch=base-top;
+    const y = v => base - (v/max)*ch;
+    const bw = 28, step = W/7, wk = ['dom','seg','ter','qua','qui','sex','sáb'];
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Água bebida nos últimos 7 dias">`;
+    s += `<line class="grid" x1="0" x2="${W}" y1="${base}" y2="${base}"/>`;
+    days.forEach((d,i)=>{
+      const v = vals[i], x = step*i + (step-bw)/2, h = Math.max(v? 4:0, base - y(v)), hit = v>=meta;
+      const isToday = i===6;
+      if(v>0) s += `<path class="bar ${hit?'':'miss'}" d="M${x} ${base} V${base-h+4} q0 -4 4 -4 h${bw-8} q4 0 4 4 V${base} Z"><title>${d.toLocaleDateString('pt-BR')}: ${fmt(v)} ml (${Math.round(v/meta*100)}% da meta)</title></path>`;
+      if(isToday || (v>0 && i===vals.indexOf(Math.max(...vals)))) s += `<text class="val num" x="${x+bw/2}" y="${base-h-6}" text-anchor="middle">${v>=1000?(v/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' L':fmt(v)}</text>`;
+      s += `<text class="lbl" x="${x+bw/2}" y="${base+18}" text-anchor="middle">${isToday?'hoje':wk[d.getDay()]}</text>`;
+    });
+    s += `<line class="goal" x1="0" x2="${W}" y1="${y(meta)}" y2="${y(meta)}"/>`;
+    s += `<text class="lbl num" x="${W}" y="${y(meta)-5}" text-anchor="end">meta ${fmt(meta)} ml</text>`;
+    s += `</svg>`;
+    $('chart').innerHTML = s;
+
+    // estatísticas
+    let streak=0; for(let i=0;i<400;i++){ const d=new Date(); d.setDate(d.getDate()-i); const t=totalDia(dayKey(d)); if(t>=meta) streak++; else if(i===0) continue; else break; }
+    $('stStreak').textContent = streak;
+    $('stAvg').textContent = Math.round(vals.reduce((a,b)=>a+Math.min(b/meta,1),0)/7*100)+'%';
+    $('stBottles').textContent = fmt(bottles());
+  }
+
+  function render(){
+    const p = state.profile, k = todayKey(), list = state.logs[k]||[], total = totalDia(k);
+    const pct = Math.min(total/p.meta,1), falta = Math.max(p.meta-total,0);
+    $('hello').textContent = p.nome ? 'Olá, '+p.nome : '';
+    $('bigNum').innerHTML = fmt(total)+' <small>ml</small>';
+    $('subNum').textContent = 'de '+fmt(p.meta)+' ml · '+Math.round(total/p.meta*100)+'% da meta';
+    const pill = $('statusPill');
+    if(falta===0){ pill.className='pill ok'; pill.textContent='Meta de hoje atingida'; }
+    else { pill.className='pill go'; pill.textContent='Faltam '+fmt(falta)+' ml (≈ '+Math.ceil(falta/250)+' copos)'; }
+    const r = $('waterRect'), top=8, bottom=154, h=(bottom-top)*pct; r.setAttribute('y', bottom-h); r.setAttribute('height', h);
+
+    // lembrete
+    const last = list.length ? list[list.length-1].t : null, hora = new Date().getHours();
+    const rem = $('reminder');
+    if(falta>0 && hora>=8 && hora<22 && (!last || (Date.now()-last) > LEMBRETE_MIN*60000)){
+      rem.hidden=false; rem.textContent = last ? 'Já faz mais de 2 horas desde o último registro. Que tal um copo agora?' : 'Você ainda não registrou água hoje. Comece com um copo.';
+    } else rem.hidden=true;
+
+    // lista
+    $('log').innerHTML = list.map((e,i)=>`<li><span><b class="num">${fmt(e.ml)} ml</b> <span class="tag">às ${new Date(e.t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}${e.reuse?' · reutilizável':' · descartável'}</span></span><button class="del" type="button" data-i="${i}" aria-label="Apagar registro de ${fmt(e.ml)} ml">×</button></li>`).reverse().join('');
+    // índices invertidos: corrigir data-i
+    [...$('log').querySelectorAll('.del')].forEach((b,j)=>{ b.dataset.i = list.length-1-j; });
+    $('logEmpty').hidden = list.length>0;
+
+    $('profileLine').textContent = (p.nome? p.nome+' · ':'')+fmt(p.peso)+' kg · meta de '+fmt(p.meta)+' ml por dia'+(p.ativo?' (inclui +500 ml por atividade física ou calor)':'');
+    renderChart();
+  }
+
+  function showMain(){
+    $('setup').hidden = true; $('main').hidden = false;
+    if(!state.profile){ openSetup(false); return; }
+    render();
+  }
+
+  // atualiza o lembrete e a virada do dia a cada minuto
+  setInterval(()=>{ if(state.profile && !$('main').hidden) render(); }, 60000);
+
+  state.profile ? showMain() : openSetup(false);
+})();
+</script>
+
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
+</body>
+</html>
